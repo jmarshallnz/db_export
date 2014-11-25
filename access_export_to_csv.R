@@ -9,9 +9,9 @@
 # The current procedure is as follows:
 #
 # 1. Specify which rows we want to eliminate.
-#    a. Stuff from inappropriate projects?
-#    b. Non-primary human cases?
-#    c. Things without MLST information.
+#    a. Things without MLST information.
+#    b. Stuff from inappropriate projects?
+#    c. Non-primary human cases?
 #
 # 2. Specify the columns we want.
 #
@@ -32,7 +32,60 @@
 #    b. Replace source names with numbers.
 #    c. Save as .TXT.
 
+# Ideally we'd read the .xls sheet in directly.  Unfortunately, access produces .xls sheets
+# that aren't nicely processable by any of the xls reading packages in R, as the Episurv Comment
+# field contains newlines, quotes, double quotes, commas and tabs...
+#
+# Thus, we need to first load the sheet in Excel, and save it as a .csv.
+#
+# This isn't too much more work than running the Excel export in the first place, but is frustrating
+# nonetheless.  For more info, the openxlsx reader doesn't handle t="inlineStr" style tags.
+
 library(dplyr)
+
+db <- read.csv("../Export_Bionumerics_DO_NOT_CHANGE.csv", stringsAsFactors=F)
+
+# 1. Eliminate the rows we don't want.
+#   a. rows without MLST allele information
+
+db = db %>% filter(ASP != "" |
+                   GLN != "" |
+                   GLT != "" |
+                   GLY != "" |
+                   PGM != "" |
+                   TKT != "" |
+                   UNC != "")
+
+#   b. rows without source information
+
+# TODO: Should we rely on the SA_model_source column, or should this be filled in automatically based
+#       on the Source.Type and Sample.Type columns?
+
+db = db %>% filter(SA_model_source != "")
+
+#   c. human isolates that aren't primaries and don't have unique STs
+
+# TODO: It's not clear what to do if Primary is not specified as Yes or No.  Some are blanks.
+#       Even if it is No, we should still include if there is another isolate ID and the ST was unique?
+
+#   d. non-Manawatu human isolates
+
+# TODO: Do we want to trust the Palmerston North column here, or PN Hospital, or?
+
+#   e. projects we wish to preclude.
+
+# TODO: Any other rows to eliminate?
+
+
+
+
+
+
+
+db[[col_names_mlst_alleles[1]]]
+
+
+# 1. Eliminate e
 
 # The 2013 procedure was as follows:
 #
