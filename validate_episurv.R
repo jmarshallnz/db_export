@@ -4,11 +4,13 @@ library(dplyr)
 library(lubridate)
 
 # read in the massey questions files and merge them together
-massey_files <- list.files(pattern="Massey.*.csv")
+episurv_path <- "../EpisurvData"
 
-massey <- read.csv(massey_files[1], header=T, stringsAsFactors=F, colClasses="character")
+massey_files <- list.files(episurv_path, pattern="Massey.*.csv")
+
+massey <- read.csv(file.path(episurv_path, massey_files[1]), header=T, stringsAsFactors=F, colClasses="character")
 for (i in massey_files[-1]) {
-  next_massey <- read.csv(i, header=T, stringsAsFactors=F, colClasses="character")
+  next_massey <- read.csv(file.path(episurv_path, i), header=T, stringsAsFactors=F, colClasses="character")
   if (any(names(next_massey) != names(massey))) {
     stop("columns don't match in Massey question files - need to use intersection of available columns or some such")
   }
