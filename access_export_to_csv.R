@@ -150,6 +150,7 @@ db = db %>% filter(Project != "Els Acke Pet Food" &
                    Project != "Random" &
                    Project != "TeckLok" &
                    Project != "Whitford Wild Bird Trust" &
+                   Project != "total_genome_sequencing" &
                    Project != "")
 
 #   b. rows without source information
