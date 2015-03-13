@@ -23,9 +23,13 @@ for (i in 1:ncol(db1))
 for (i in 1:ncol(db2))
   db2[,i] <- trim(db2[,i])
 
+# order the columns
+db1 <- db1[,sort(names(db1))]
+db2 <- db2[,sort(names(db2))]
+
 # check each has the same columns
 if (any(names(db1) != names(db2))) {
-  stop("Database column names disagree. TODO: Allow reordering them\n")
+  stop("Database column names disagree.")
 }
 
 # find a unique column to order by to ensure things are comparable
