@@ -1,21 +1,57 @@
 # This script is to to validate the episurv information
 
+source("read_data.R")
+source("extractors.R")
+source("validators.R")
+
 library(dplyr)
 library(lubridate)
 
-# read in the massey questions files and merge them together
 episurv_path <- "../EpisurvData"
 
-massey_files <- list.files(episurv_path, pattern="Massey.*.csv")
+massey <- read_massey(episurv_path)
+edr    <- read_edr(episurv_path)
 
-massey <- read.csv(file.path(episurv_path, massey_files[1]), header=T, stringsAsFactors=F, colClasses="character")
-for (i in massey_files[-1]) {
-  next_massey <- read.csv(file.path(episurv_path, i), header=T, stringsAsFactors=F, colClasses="character")
-  if (any(names(next_massey) != names(massey))) {
-    stop("columns don't match in Massey question files - need to use intersection of available columns or some such")
-  }
-  massey <- merge(massey, next_massey, all.x=T, all.y=T)
-}
+hosp_num <- extract_hospital_from_comment(edr$Comment)
+
+episurv_hn <- data.frame(EpiSurvNumber = edr$EpiSurvNumber, HospitalNumComment = hosp_num, stringsAsFactors=F)
+
+dat <- validate_hosp_epi(episurv_hn$HospitalNumComment, episurv_hn$EpiSurvNumber)
+
+results_epi <- cbind(episurv_hn, dat)
+
+compare <- results_epi %>% outer_join(results_massey, by=c("EpiSurvNumber" = "episurvnum"))
+
+compare <- compare %>% mutate(hosp_same = HospitalNumComment == hospitalnu) %>% arrange(as.numeric(id))
+
+# find ones where hosp num disagrees
+diff_hosp <- compare %>% filter(hosp_same == F)
+
+# TODO:
+# righto, now join the episurv_hn data frame to our massey_hn data frame and see where things stand...
+
+compare_hn <- episurv_hn %>% outer_join(massey_hn, by=c("EpiSurvNumber" = "episurvnum"))
+
+compare_hn <- compare_hn %>% mutate(hosp_same = HospitalNumComment == hospitalnu) %>% arrange(as.numeric(id))
+
+write.csv(compare, "comparison.csv", row.names=F)
+
+
+# create 'fixup' file for massey
+fixup_massey <- results_massey %>% filter(bad == TRUE) %>% mutate(action="") %>% select(id, action, episurv=episurvnum, hospital=hospitalnu, reason=bad_reason, resid=resid_col, student=resid_col2)
+write.csv(fixup_massey, "fixup_massey.csv", row.names=F)
+
+# create 'fixup' file for episurv
+fixup_epi <- results_epi %>% filter(bad == TRUE) %>% mutate(action="") %>% select(id, action, episurv=EpiSurvNumber, hospital=HospitalNumComment, reason=bad_reason, resid=resid_col, student=resid_col2)
+write.csv(fixup_epi, "fixup_epi.csv", row.names=F)
+
+results_epi <- cbind(episurv_hn, dat)
+
+
+
+
+
+
 
 # read in the sample level data from the database
 sample <- read.csv("../Sample_20150128.csv", stringsAsFactors=F, colClasses="character")
@@ -28,11 +64,12 @@ sample <- sample %>% filter(Hospital.No != "" | LinkNo != "")
 table(nchar(sample$Hospital.No))
 
 sample$Hospital.No[nchar(sample$Hospital.No) > 10]
+sample$LinkNo[nchar(sample$LinkNo) > 10]
 
 massey$hospitalnu[nchar(massey$hospitalnu) > 10]
 
 # find which hospitalnu's we are missing in the sample table
-massey_hn <- massey %>% select(id, episurvnum, hospitalnu)
+massey_hn <- massey %>% select(id, episurvnum, hospitalnu, hospitaln1, hospitaln2, disease)
 
 sample_hn <- sample %>% select(Lab.ID, Hospital.No, LinkNo)
 
@@ -45,101 +82,16 @@ nrow(massey_hn %>% filter(hospitalnu %in% sample_hn$Hospital.No))
 nrow(massey_hn %>% filter(substring(hospitalnu,1,10) %in% sample_hn$Hospital.No))
 
 missing_samples <- massey_hn %>% filter(!(substring(hospitalnu,1,10) %in% sample_hn$LinkNo))
-missing_samples %>% mutate(sh 
+#missing_samples %>% mutate(sh 
 
 massey[,c("id","episurvnum", "hospitalnu")] %>% arrange(episurvnum) %>% mutate(dupe_epi=duplicated(episurvnum), dupe_hosp=duplicated(hospitalnu))
 
 massey_hn
 
-append <- function(v, a) {
-  ifelse(nchar(v) > 0, paste0(v, ",", a), a)
-}
-
-# validates hospital numbers against episurv numbers
-validate_hosp_epi <- function(hosp, epi) {
-
-  stopifnot(length(epi) == length(hosp))
-
-  n <- length(epi)
-
-  # first validate the episurv numbers
-  # episurv numbers take the form: YY-######-PN
-  bad <- !grepl("^[1]*[0-9]-[0-9]{6}-PN$", epi)
-  if (any(bad)) {
-    cat("Invalid episurv numbers:\n")
-    print(epi[bad])
-  }
-  bad_reason <- character(n)
-  bad_reason[bad] <- "InvalidEpisurv"
-
-  # no validate hospital numbers
-  # hospital numbers take the form:
-  # YY0#######, where YY may be a single year
-  bad_hosp <- !grepl("^[1]*[0-9]0[0-9]{7}$", hosp)
-  if (any(bad_hosp)) {
-    cat("Invalid hospital numbers:\n")
-    print(hosp[bad_hosp])
-  }
-  bad <- bad | bad_hosp
-  bad_reason[bad_hosp] <- append(bad_reason[bad_hosp], "InvalidHospital")
-
-  # epi/hosp are the correct format, so split into dataframes of year/num
-  dat  <- data.frame(year=rep(NA,n),epi=NA,hosp=NA)
-
-  dat$year[!bad] <- as.numeric(gsub("^([1]*[0-9])(-[0-9]{6}-PN)$", "\\1", epi[!bad]))
-  dat$epi[!bad]  <- as.numeric(gsub("^([1]*[0-9]-)([0-9]{6})(-PN)$", "\\2", epi[!bad]))
-  dat$hosp[!bad] <- as.numeric(gsub("^([1]*[0-9]0)([0-9]{7})$", "\\2", hosp[!bad]))
-  hosp_year       <- rep(NA,n)
-  hosp_year[!bad] <- as.numeric(gsub("^([1]*[0-9])(0[0-9]{7})$", "\\1", hosp[!bad]))
-
-  bad_match <- dat$year != hosp_year & !bad
-  if (any(bad_match)) {
-    cat("Invalid matching between episurv and hospital number years:\n")
-    print(cbind(hosp[bad_match], epi[bad_match]))
-  }
-  bad <- bad | bad_match
-  bad_reason[bad_match] <- append(bad_reason[bad_match], "YearMismatch")
-
-  dat$year <- factor(dat$year)
-
-  # IDEA: correlate the (converted) episurv number
-  #       and work out where we have outliers
-  plot(epi ~ hosp, col=year, data=dat[!bad,])
-
-  # fit a linear model
-  mod.2 <- lm(epi ~ hosp * year, data=dat[!bad,])
-  mod.1 <- lm(epi ~ hosp + year, data=dat[!bad,])
-  mod.0 <- lm(epi ~ hosp, data=dat[!bad,])
-
-  # find most suitable model
-  if (anova(mod.2, mod.1)[2,6] < 0.05) {
-    cat("Separate slopes for year\n")
-    mod <- mod.2
-  } else if (anova(mod.1, mod.0)[2,6] < 0.05) {
-    cat("Separate intercepts for year\n")
-    mod <- mod.1
-  } else {
-    cat("Common model across years\n")
-    mod <- mod.0
-  }
-
-  par(mfrow=c(2,2))
-  plot(mod)
-
-  # find gross outliers with large residuals
-  resid_cluster <- kmeans(abs(resid(mod)), 2)
-  large_resid   <- rep(FALSE, n)
-  large_resid[!bad] <- resid_cluster$cluster == which.max(resid_cluster$centers)
-
-  bad <- bad | large_resid
-  bad_reason[large_resid] <- append(bad_reason[large_resid], "OutlierMismatch")
-
-  cbind(dat, bad, bad_reason)
-}
 
 dat <- validate_hosp_epi(massey_hn$hospitalnu, massey_hn$episurvnum)
 
-results <- cbind(massey_hn, dat) %>% mutate(id = as.numeric(id)) %>% arrange(id)
+results_massey <- cbind(massey_hn, dat) %>% mutate(id = as.numeric(id)) %>% arrange(id)
 
 write.csv(results, "MasseyQuestions_validation.csv", row.names=F)
 
