@@ -16,6 +16,13 @@ db1 <- read_db("20150142")
 #db1 <- read.csv("../Sample_20141207.csv", stringsAsFactors=F)
 #db1 <- read.csv("../Sample_20140818.csv", stringsAsFactors=F)
 
+# trim off whitespace
+trim <- function (x) gsub("^\\s+|\\s+$", "", x)
+for (i in 1:ncol(db1))
+  db1[,i] <- trim(db1[,i])
+for (i in 1:ncol(db2))
+  db2[,i] <- trim(db2[,i])
+
 # check each has the same columns
 if (any(names(db1) != names(db2))) {
   stop("Database column names disagree. TODO: Allow reordering them\n")
