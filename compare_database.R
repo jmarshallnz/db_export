@@ -16,6 +16,13 @@ db1 <- read_db("20150142")
 #db1 <- read.csv("../Sample_20141207.csv", stringsAsFactors=F)
 #db1 <- read.csv("../Sample_20140818.csv", stringsAsFactors=F)
 
+# COMPARING ACCESS + R EXPORTS
+#db1 <- read.csv("Export_Bionumerics_OUT.csv", stringsAsFactors=F)
+#db2 <- read.csv("../Export_Bionumerics_20150128.csv", stringsAsFactors=F)
+#db1$unique <- paste(db1$Lab.ID, db1$Lab.No)
+#db2$unique <- paste(db2$Lab.ID, db2$Lab.No)
+#db1 <- db1[-2025,] # there's a duplicate from the R export
+
 # trim off whitespace
 trim <- function (x) gsub("^\\s+|\\s+$", "", x)
 for (i in 1:ncol(db1))
