@@ -45,7 +45,7 @@ if (length(unique_columns) == 0)
   stop("No unique column available to compare databases on :(")
 
 unique_column <- unique_columns[1]
-cat("Using the", unique_column, "column to compare databases\n")
+cat("Using the '", unique_column, "' column to compare databases\n", sep="")
 
 # find the common rows of the two databases
 common <- intersect(db1[,unique_column], db2[,unique_column])
