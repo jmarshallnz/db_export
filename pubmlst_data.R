@@ -43,6 +43,6 @@ get_allelic_profiles <- function(pubmlst_sts_url, pubmlst_isolates_path) {
   mlst <- mlst %>% mutate(CC = mygrep("^ST-([0-9]+) complex", "\\1", clonal_complex))
 
   # finally, dump only the columns we're after
-  mlst %>% select(ST, ASP=aspA, GLN=glnA, GLT=gltA, GLY=gltA, PGM=pgm, TKT=tkt, UNC=uncA, CC, coli = prob_coli)
+  mlst %>% select(ST, ASP=aspA, GLN=glnA, GLT=gltA, GLY=glyA, PGM=pgm, TKT=tkt, UNC=uncA, CC, coli = prob_coli)
 }
 
