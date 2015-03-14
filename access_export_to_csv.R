@@ -161,7 +161,11 @@ db = db %>% filter(Source.Type != "Human" | Primary.sample != "No" | Lab.ID %in%
 
 db = db %>% filter(SA_model_source != "Pig")
 
-#   f. Incomplete SA profiles
+#   f. c.coli isolates
+
+db = db %>% filter(coli != "coli")
+
+#   g. Incomplete SA profiles
 db = db %>% filter(!is.na(ASP) &
                    !is.na(GLN) &
                    !is.na(GLT) &
