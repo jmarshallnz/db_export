@@ -166,6 +166,13 @@ db = db %>% filter(SA_model_source != "Pig")
 db = db %>% filter(coli != "coli")
 
 #   g. Incomplete SA profiles
+
+# first remove those with more than X news
+new_allele_max <- 2
+
+incomplete <- which(rowSums(db[,cols_mlst] > 900) > new_allele_max)
+db = db[-incomplete,]
+
 db = db %>% filter(!is.na(ASP) &
                    !is.na(GLN) &
                    !is.na(GLT) &
