@@ -41,9 +41,11 @@
 # This isn't too much more work than running the Excel export in the first place, but is frustrating
 # nonetheless.  For more info, the openxlsx reader doesn't handle t="inlineStr" style tags.
 
+source("pubmlst_data.R")
+
 library(dplyr)
 
-db <- read.csv("../Export_Bionumerics_DO_NOT_CHANGE.csv", stringsAsFactors=F)
+db <- read.csv("../Export_Bionumerics_20150128.csv", stringsAsFactors=F)
 
 # 1. Process MLST information.
 
@@ -65,9 +67,8 @@ for (i in cols_mlst) {
 
 #   a. convert MLST info to numeric
 
-
 for (i in cols_mlst)
-  db[,i] <- as.numeric(db[,i])
+  db[,i] <- suppressWarnings(as.numeric(db[,i]))
 
 #   b. eliminate rows without MLST information.
 
@@ -81,57 +82,21 @@ db = db %>% filter(!is.na(ASP) |
 
 #   c. ST from PubMLST, optionally imputing missing alleles
 
-impute_alleles <- 0 # maximum number of imputed alleles
+pubmlst <- get_allelic_profiles(pubmlst_sts_url="http://pubmlst.org/data/profiles/campylobacter.txt",
+                                pubmlst_isolates_path="../pubmlst_isolates_20150219.txt")
 
-# download pubmlst data
-pubmlst <- read.table("http://pubmlst.org/data/profiles/campylobacter.txt", header=T, sep="\t")
-cols_pub <- 2:8
+results <- get_sequence_type(mlst=db[,cols_mlst], pubmlst=pubmlst, impute_alleles=0)
 
-ST <- rep(NA, nrow(db))
-impute <- rep(0, impute_alleles+2)
-new_sts <- 0
-for (i in 1:nrow(db)) {
-  st <- db[i, cols_mlst]
-  possibles <- rep(T, nrow(pubmlst))
-  na_count <- 0
-  for (j in 1:length(st)) {
-    if (!is.na(st[,j])) {
-      possibles <- possibles & pubmlst[,cols_pub[j]] == st[,j]
-    } else {
-      na_count <- na_count + 1;
-    }
-  }
-  if (sum(possibles) == 0 && na_count == 0) {
-    # new ST?
-    cat("New full-profile ST found at row", i, "\n")
-    new_sts <- new_sts+1
-    pubmlst[nrow(pubmlst)+1,1:8] <- c(10000 + new_sts, st)
-  } else if (sum(possibles) == 0) {
-    cat("New partial-profile ST found with", na_count, "missing loci at row", i, "\n")
-  }
-  else if (na_count <= impute_alleles && sum(possibles) == 1) {
-    # found - fill in the gaps from PubMLST
-    ST[i] <- pubmlst[possibles, "ST"]
-    db[i, cols_mlst] <- pubmlst[possibles, cols_pub]
-    impute[na_count+1] <- impute[na_count+1] + 1
-  } else {
-    impute[impute_alleles+2] <- impute[impute_alleles+2] + 1
-  }
-  if (i %% 100 == 0)
-    cat("done", i, "of", nrow(db), "rows\n")
-}
+compST <- data.frame(db = db$ST, pubmlst = result$ST)
 
-#   d. compare to ST in database.
+compST %>% filter(db != "" & is.na(pubmlst))
+compST %>% filter(db == "" & !is.na(pubmlst))
+compST %>% filter(db != pubmlst & !is.na(pubmlst))
 
-compST <- cbind(db$ST, ST)
-
-compST[db$ST != "" & is.na(ST),]
-compST[db$ST == "" & !is.na(ST),]
-compST[db$ST != ST & !is.na(ST),]
-
-db$ST = ST
-
-
+db[,cols_mlst] <- results[,cols_mlst]
+db$ST <- results$ST
+db$CC <- results$CC
+db$coli <- results$coli
 
 # 2. Eliminate the rows we don't want.
 #   a. rows in the wrong project
