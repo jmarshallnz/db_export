@@ -144,7 +144,7 @@ primary = db %>% filter(Source.Type == "Human" & Primary.sample != "No")
 join_cols = as.vector("LabID")
 names(join_cols)
 
-include_np <- non_primary %>% inner_join(primary, by=c("Duplicate.to" = "Lab.ID"))
+include_np <- non_primary %>% inner_join(primary %>% select(-Duplicate.to), by=c("Duplicate.to" = "Lab.ID"))
 
 include_np = include_np %>% filter(ASP.x != ASP.y |
                                    GLN.x != GLN.y |
