@@ -175,6 +175,11 @@ db = db %>% filter(!is.na(ASP) &
                    !is.na(UNC) & 
                    !is.na(ST))
 
+#   h. Duplicate isolates from the same sample with the same ST
+
+unique_rows <- as.numeric(rownames(unique(db %>% select(Lab.ID, ST))))
+db <- db[unique_rows,]
+
 # fixup date information
 db <- db %>% mutate(ReportDate = as.Date(ReportDate, format="%d/%m/%Y"))
 
