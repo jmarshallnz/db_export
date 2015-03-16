@@ -45,7 +45,7 @@ source("pubmlst_data.R")
 
 library(dplyr)
 
-db <- read.csv("../Export_Bionumerics_20150128.csv", stringsAsFactors=F)
+db <- read.csv("../Export_Bionumerics_20150317.csv", stringsAsFactors=F)
 
 # 1. Process MLST information.
 
