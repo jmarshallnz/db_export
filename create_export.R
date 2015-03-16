@@ -90,9 +90,9 @@ join_data <- function(episurv_path, sample_path, isolate_path, cols_to_extract =
   final[, cols_to_extract]
 }
 
-final <- join_data("../EpisurvData/master_20150115.csv", "../Sample_20150128.csv", "../Isolate_20150128.csv")
+final <- join_data("../EpisurvData/master_20150317.csv", "../Sample_20150128.csv", "../Isolate_20150128.csv")
 
 # and write out to csv
-#write.csv(final, "Export_Bionumerics_OUT.csv", row.names=F)
+write.csv(final, "Export_Bionumerics_20150317.csv", row.names=F, na="")
 
 

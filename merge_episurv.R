@@ -149,19 +149,17 @@ nomatch <- nomatch %>% mutate(Hospital.Numbers.y = substring(Hospital.Numbers.y,
 nomatch %>% select(EpiSurvNumber, Hospital.Numbers.x, Hospital.Numbers.y, other.hos.nos.x, other.hos.nos.y)
 
 # match these against hospital numbers extracted from episurv data
-hosp_num <- extract_hospital_from_comment(edr$Comment)
+hosp_num <- extract_hospital_from_comment(edr$Comments)
 
 edr_hn <- data.frame(EpiSurvNumber = edr$EpiSurvNumber, hosp_num)
 
-nomatch %>% left_join(edr_hn, by="EpiSurvNumber") %>% select(EpiSurvNumber, Hospital.Numbers.x, hosp_num, Hospital.Numbers.y, other.hos.nos.x, other.hos.nos.y)
+#nomatch %>% left_join(edr_hn, by="EpiSurvNumber") %>% select(EpiSurvNumber, Hospital.Numbers.x, hosp_num, Hospital.Numbers.y, other.hos.nos.x, other.hos.nos.y)
+#nomatch <- joint %>% filter(Hospital.Numbers.x != Hospital.Numbers.y)
+
+#nomatch %>% select(EpiSurvNumber, Hospital.Numbers.x, Hospital.Numbers.y)
 
 
-nomatch <- joint %>% filter(Hospital.Numbers.x != Hospital.Numbers.y)
-
-nomatch %>% select(EpiSurvNumber, Hospital.Numbers.x, Hospital.Numbers.y)
-
-
-master %>% filter(Hospital.Numbers %in% nomatch$Hospital.Numbers.y)
+#master %>% filter(Hospital.Numbers %in% nomatch$Hospital.Numbers.y)
 
 # Now, do the merging
 # for now we assume the episurv info is GOLD STANDARD and copy across all of that (even if it overrides what
@@ -174,5 +172,5 @@ master_new <- merge_db(master_new, massey, "EpiSurvNumber", add_new=FALSE)
 master_new <- merge_db(master_new, massey, "Hospital.Numbers", add_new=FALSE)
 
 # write the new master sheet out
-write.csv(master_new, file.path(episurv_path, "master_new.csv"), row.names=F)
+write.csv(master_new, file.path(episurv_path, "master_new.csv"), row.names=F, na="")
 
