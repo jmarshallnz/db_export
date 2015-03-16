@@ -242,200 +242,24 @@ write.csv(sub, "output.csv", row.names=F)
 
 # TODO: Write R Markdown document to encapsulate this information.
 
-
-# The 2013 procedure was as follows:
-#
-# 1. Nigel dumped data from the Access database.
-# 2. Nigel imputed the missing fields, and filled in ST and imputed column.
-# 3. JM fixed various fields (incorrect STs, missing imputed column values, in RED in the excel sheet) and dumped to .csv.
-
-# column names for data set
-col_names_alleles        <- c("ASP", "GLN", "GLT", "GLY", "PGM", "TKT", "UNC")
-col_names_clonal_complex <- c("CC")
-col_names_sequence_type  <- c("ST")
-col_names_source         <- c("SA_model_source")
-col_names_month          <- c("Month")
-col_names_sample_id      <- c("Lab.ID")
-
-# known c.coli clonal complex to remove
-remove_c_coli_cc <- c("828")
-
-# date range
-date_min <- "2005-07-01"
-date_max <- "2006-06-31"
-
 # source groups
-#sources <- list("Supplier A", "Supplier B", "Supplier_other", "Duck_poultry", "Turkey", "Spent_hen", "Cattle", "Sheep", "Cat_dog_pet", "Water_bird_wild", "Wild_bird_other", "Environmental water")
-#sources <- list(c("Supplier A", "Supplier B", "Supplier_other"), c("Cattle", "Sheep"), c("Duck_poultry", "Turkey", "Spent_hen", "Cat_dog_pet", "Water_bird_wild", "Wild_bird_other", "Environmental water"))
-#sources <- list(c("Supplier A", "Supplier B", "Supplier_other"), c("Cattle", "Sheep"), "Environmental water")
-#sources <- list(c("Supplier A", "Supplier B", "Supplier_other"), c("Cattle", "Sheep"), "Environmental water", c("Duck_poultry", "Turkey", "Spent_hen", "Cat_dog_pet", "Water_bird_wild", "Wild_bird_other"))
-
-sources <- list(c("Supplier A", "Supplier B", "Supplier_other"), "Duck_poultry", "Turkey", "Spent_hen", "Cattle", "Sheep", "Cat_dog_pet", "Water_bird_wild", "Wild_bird_other", "Environmental water")
-
-# human group
-human_group <- "Human"
-
-# read in 2013 data from Nigel.
-d2013 <- read.csv("2013_all_dump2.csv")
-#d2013 <- read.csv("2013_all_dump.csv")
-
-# throw away anything that doesn't match our sources
-source_match <- d2013[,col_names_source] == human_group
-for (i in 1:length(sources))
-{
-  for (j in 1:length(sources[[i]]))
-    source_match <- source_match | d2013[,col_names_source] == sources[[i]][j]
-}
-cat("Eliminating", sum(!source_match), "entries not matching our source list or humans\n")
-d2013 <- d2013[source_match,]
-d2013[,col_names_sample_id] <- factor(d2013[,col_names_sample_id])
-
-# !!!YET ANOTHER FUCKUP!!!
-d2013$ST <- as.character(d2013$ST)
-d2013$ST[d2013$ST == "u53"][2] <- "u53b"
-d2013$ST <- factor(d2013$ST)
-# !!!YET ANOTHER FUCKUP!!!
-
-# throw away all imputed
-imputed <- d2013$imputed != 0 & !is.na(d2013$imputed)
-d2013 <- d2013[!imputed,]
-
-# check the dataset contains the columns we expect
-sum(is.na(d2013[,col_names_sample_id]))  # great - none missing
-
-# switch months to a Date object
-d2013[, col_names_month] <- as.Date(d2013[,col_names_month], format="%d-%b-%y")
-
-# identify the allele columns
-allele_cols  <- sapply(col_names_alleles, function(x) { wch <- which(names(d2013)==x); if (length(wch) == 0) { NA } else { wch } })
-if (any(is.na(allele_cols)))
-  stop("Missing allele column(s) ", allele_names[is.na(allele_cols)], " in data set!")
-
-# eliminate humans without date
-humans_no_date <- is.na(d2013[, col_names_month]) & d2013[, col_names_source] == human_group
-cat("Eliminating", sum(humans_no_date), "human entries with no date\n")
-d2013 <- d2013[!humans_no_date,]
-
-# replace the month column
-min_year  <- as.numeric(substr(date_min, 1, 4))
-min_month <- as.numeric(substr(date_min, 6, 7))
-max_year  <- as.numeric(substr(date_max, 1, 4))
-max_month <- as.numeric(substr(date_max, 6, 7))
-ym_min <- min_year * 4 + (min_month-1) %/% 3
-ym_max <- max_year * 4 + (max_month-1) %/% 3
-
-year  <- as.numeric(substr(d2013[,col_names_month], 1, 4))
-month <- as.numeric(substr(d2013[,col_names_month], 6, 7))
-ym <- year * 4 + (month-1) %/% 3
-
-out_of_range <- ym < ym_min | ym > ym_max
-out_of_range <- out_of_range & !is.na(out_of_range)
-d2013$Month <- ym - ym_min + 1
-
-cat("Eliminating", sum(out_of_range), "entries that are out of the data range", date_min, "to", date_max, "\n")
-d2013 <- d2013[!out_of_range,]
-
-# throw away known c.coli
-ccoli <- rep(FALSE, nrow(d2013))
-for (cc in remove_c_coli_cc)
-  ccoli <- ccoli | d2013[col_names_clonal_complex] == cc
-cat("Eliminating", sum(ccoli), "entries matching c.coli clonal complexes\n")
-d2013 <- d2013[!ccoli,]
-
-# throw away 2013
-#d2013 <- d2013[!(d2013$Month >= "2013-01-01" & !is.na(d2013$Month)),]
-
-# throw away those where we have non-numeric entries (i.e. NEW) across more than 4...
-s <- rep(0, nrow(d2013))
-for (j in allele_cols)
-  s <- s + is.na(as.numeric(as.character(d2013[,j])))
-
-cat("Eliminating", sum(s >= 4), "entries due to 4 or more new alleles\n")
-d2013 <- d2013[s < 4,]
-
-
-STs <- unique(d2013$ST)
-for (i in 1:length(STs))
-{
-  if (nrow(unique(d2013[d2013$ST == STs[i], col_names_alleles])) > 1)
-  {
-    cat("Error ST", STs[i], "is not unique\n")
-    dupes <- d2013[d2013$ST == STs[i],]
-    uniq <- dupes[!duplicated(dupes[,col_names_alleles]),]
-    for (i in 1:nrow(uniq))
-      cat(uniq[i,]$Lab.ID, uniq[i,]$ST, as.character(uniq[i,col_names_alleles]), uniq[i,]$imputed, "\n")
-  }
-}
-
-# Remove duplicate STs from the same sample
-
-uniqueSamples <- levels(d2013[,col_names_sample_id])
-d2013_no_dupes <- d2013[0,]
-for (i in 1:length(uniqueSamples))
-{
-  wch <- which(d2013[,col_names_sample_id] == uniqueSamples[i])
-  # pull out the ST profile for these...
-  if (length(wch) > 1) {
-    u <- duplicated(d2013[wch,allele_cols])
-    d2013_no_dupes <- rbind(d2013_no_dupes, d2013[wch[!u],])
-  } else if (length(wch) == 1) {
-    d2013_no_dupes <- rbind(d2013_no_dupes, d2013[wch,])
-  }
-}
-
-cat("Eliminated", nrow(d2013) - nrow(d2013_no_dupes), "rows due to being duplicates\n")
-
-# replace the u* with 99*
-# replace ###[a-z] with ###[000]
-STs <- levels(d2013_no_dupes[,col_names_sequence_type])
-for (i in 1:length(STs))
-{
-  if (substr(STs[i], 1, 1) == "u")
-  {
-    newST <- paste("9", substr(STs[i],2,10), sep="")
-    # check if this type is previously found...
-    while (sum(STs == newST) > 0)
-      newST <- paste("9", newST, sep="")
-    cat("Replacing ST", STs[i], "with numeric value", newST, "\n")
-    STs[i] <- newST;
-  }
-  if (is.na(as.numeric(substr(STs[i], nchar(STs[i]), nchar(STs[i])))))
-  {
-    newST <- paste(substr(STs[i],1,nchar(STs[i])-1), "0", sep="")
-    # check if this type is previously found...
-    while (sum(STs == newST) > 0)
-      newST <- paste(newST, "0", sep="")
-    cat("Replacing ST", STs[i], "with numeric value", newST, "\n")
-    STs[i] <- newST;
-  }
-}
-levels(d2013_no_dupes[,col_names_sequence_type]) <- STs
-d2013_no_dupes[,col_names_sequence_type] <- as.numeric(as.character(d2013_no_dupes[,col_names_sequence_type]))
-
-# replace non-numeric alleles with 999... making sure we don't create duplicate STs...
-for (j in allele_cols)
-{
-  d2013_no_dupes[,j] <- as.numeric(as.character(d2013_no_dupes[,j]))
-  non_num <- is.na(d2013_no_dupes[,j])
-  nums <- as.numeric(as.factor(d2013_no_dupes[non_num,col_names_sequence_type]))
-  d2013_no_dupes[non_num,j] <- 1000-nums
-}
+#sources <- list(c("Supplier A", "Supplier B", "Supplier_other"), "Duck_poultry", "Turkey", "Spent_hen", "Cattle", "Sheep", "Cat_dog_pet", "Water_bird_wild", "Wild_bird_other", "Environmental water")
 
 # replace the source column
-source <- rep(0, nrow(d2013_no_dupes))
-for (i in 1:length(sources))
-{
-  for (j in 1:length(sources[[i]]))
-    source[d2013_no_dupes[,col_names_source] == sources[[i]][j]] <- i
-}
-d2013_no_dupes[,col_names_source] <- source
+#source <- rep(0, nrow(d2013_no_dupes))
+#for (i in 1:length(sources))
+#{
+#  for (j in 1:length(sources[[i]]))
+#    source[d2013_no_dupes[,col_names_source] == sources[[i]][j]] <- i
+#}
+#d2013_no_dupes[,col_names_source] <- source
 
 # write out for model running...
-animals <- subset(d2013_no_dupes, source>0)[,c(col_names_sequence_type, col_names_alleles, col_names_source)]
-names(animals) <- c("ST", col_names_alleles, "Source")
-humans  <- subset(d2013_no_dupes, source==0)[,c(col_names_sequence_type, col_names_alleles, col_names_month)]
-names(humans) <- c("ST", col_names_alleles, "YM")
+#animals <- subset(d2013_no_dupes, source>0)[,c(col_names_sequence_type, col_names_alleles, col_names_source)]
+#names(animals) <- c("ST", col_names_alleles, "Source")
+#humans  <- subset(d2013_no_dupes, source==0)[,c(col_names_sequence_type, col_names_alleles, col_names_month)]
+#names(humans) <- c("ST", col_names_alleles, "YM")
 
-write.table(animals, "animals_2013_9.txt", quote=F, sep="\t", row.names=F)
-write.table(humans, "humans_2005_only.txt", quote=F, sep="\t", row.names=F)
+#write.table(animals, "animals_2013_9.txt", quote=F, sep="\t", row.names=F)
+#write.table(humans, "humans_2005_only.txt", quote=F, sep="\t", row.names=F)
 
