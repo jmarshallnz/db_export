@@ -96,7 +96,7 @@ compST %>% filter(db != pubmlst & !is.na(pubmlst))
 db[,cols_mlst] <- results[,cols_mlst]
 db$ST <- results$ST
 db$CC <- results$CC
-db$coli <- results$coli
+db$Coli <- results$coli
 
 # 2. Eliminate the rows we don't want.
 #   a. rows in the wrong project
@@ -157,13 +157,13 @@ include_np = include_np %>% filter(ASP.x != ASP.y |
 # add these rows in
 db = db %>% filter(Source.Type != "Human" | Primary.sample != "No" | Lab.ID %in% include_np$Lab.ID)
 
-#   e. Sources we wish to eliminate
+#   e. Sources we wish to eliminate (TODO: This filtering should be done elsewhere)
 
 db = db %>% filter(SA_model_source != "Pig")
 
 #   f. c.coli isolates
 
-db = db %>% filter(coli != "coli")
+db = db %>% filter(Coli != "Coli")
 
 #   g. Incomplete SA profiles
 
