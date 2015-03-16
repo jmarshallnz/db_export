@@ -46,25 +46,25 @@ get_allelic_profiles <- function(pubmlst_sts_url, pubmlst_isolates_path) {
   mlst %>% select(ST, ASP=aspA, GLN=glnA, GLT=gltA, GLY=glyA, PGM=pgm, TKT=tkt, UNC=uncA, CC, coli = prob_coli)
 }
 
-get_sequence_type <- function(mlst, pubmlst, impute_alleles = 0) {
-  
+get_sequence_type <- function(mlst, pubmlst, impute_alleles = F) {
+
   cols_mlst  <- c("ASP", "GLN", "GLT", "GLY", "PGM", "TKT", "UNC")
-  
+
   # speed up by processing the unique allele combinations
   seqs <- factor(apply(mlst, 1, paste, collapse="_"))
   levs <- levels(seqs)
-  
+
   sequences <- data.frame(t(sapply(levels(seqs), function(x) { suppressWarnings(as.numeric(unlist(strsplit(x, split="_")))) })))
   names(sequences) <- cols_mlst
   sequences$ST <- ""
   sequences$CC <- ""
   sequences$coli <- ""
-  
-  impute <- rep(0, impute_alleles+2)
+  imputed <- rep(0, nrow(sequences)) # don't store in sequences, as it makes assignment from pubmlst trickier
+
   new_sts <- 0
   for (i in 1:nrow(sequences)) {
     st <- sequences[i,cols_mlst]
-    
+
     # find hits in pubmlst
     possibles <- rep(T, nrow(pubmlst))
     na_count <- 0
@@ -83,19 +83,18 @@ get_sequence_type <- function(mlst, pubmlst, impute_alleles = 0) {
     } else if (sum(possibles) == 0) {
       # partial with no match in pubmlst -> leave blank
     }
-    else if (na_count <= impute_alleles && sum(possibles) == 1) {
+    else if (sum(possibles) == 1) {
       # found - fill in the gaps from PubMLST
       sequences[i,] <- pubmlst[possibles,names(sequences)]
-      impute[na_count+1] <- impute[na_count+1] + 1
-    } else {
-      impute[impute_alleles+2] <- impute[impute_alleles+2] + 1
+      imputed[i] <- na_count
     }
     if (i %% 100 == 0)
       cat("done", i, "of", nrow(sequences), "STs\n")
   }
-  
+  sequences$imputed <- imputed
+
   result <- sequences[as.numeric(seqs),]
   rownames(result) <- 1:nrow(result)
-  
+
   result
 }

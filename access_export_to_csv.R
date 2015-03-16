@@ -85,7 +85,7 @@ db = db %>% filter(!is.na(ASP) |
 pubmlst <- get_allelic_profiles(pubmlst_sts_url="http://pubmlst.org/data/profiles/campylobacter.txt",
                                 pubmlst_isolates_path="../pubmlst_isolates_20150219.txt")
 
-results <- get_sequence_type(mlst=db[,cols_mlst], pubmlst=pubmlst, impute_alleles=0)
+results <- get_sequence_type(mlst=db[,cols_mlst], pubmlst=pubmlst, impute_alleles=T)
 
 compST <- data.frame(db = db$ST, pubmlst = results$ST, stringsAsFactors=F)
 
@@ -97,6 +97,7 @@ db[,cols_mlst] <- results[,cols_mlst]
 db$ST <- results$ST
 db$CC <- results$CC
 db$Coli <- results$coli
+db$Imputed <- results$imputed
 
 # 2. Eliminate the rows we don't want.
 #   a. rows in the wrong project
@@ -235,7 +236,7 @@ table(ur$UR_bool)
 db <- db %>% left_join(ur, by="Meshblock06")
 
 # Eliminate columns we don't want
-sub <- db %>% select(ST, ASP, GLN, GLT, GLY, PGM, TKT, UNC, SA_model_source, UR_num, UR_bool, ReportDate, Quarter, Intervention)
+sub <- db %>% select(ST, ASP, GLN, GLT, GLY, PGM, TKT, UNC, Source=SA_model_source, Imputed, UR_num, UR_bool, ReportDate, Quarter, Intervention)
 
 # write to .csv file
 write.csv(sub, "output.csv", row.names=F)
