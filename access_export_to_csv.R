@@ -87,7 +87,7 @@ pubmlst <- get_allelic_profiles(pubmlst_sts_url="http://pubmlst.org/data/profile
 
 results <- get_sequence_type(mlst=db[,cols_mlst], pubmlst=pubmlst, impute_alleles=0)
 
-compST <- data.frame(db = db$ST, pubmlst = results$ST)
+compST <- data.frame(db = db$ST, pubmlst = results$ST, stringsAsFactors=F)
 
 compST %>% filter(db != "" & is.na(pubmlst))
 compST %>% filter(db == "" & !is.na(pubmlst))
