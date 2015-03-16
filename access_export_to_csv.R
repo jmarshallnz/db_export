@@ -188,7 +188,7 @@ unique_rows <- as.numeric(rownames(unique(db %>% select(Lab.ID, ST))))
 db <- db[unique_rows,]
 
 # fixup date information
-db <- db %>% mutate(ReportDate = as.Date(ReportDate, format="%d/%m/%Y"))
+db <- db %>% mutate(ReportDate = as.Date(ReportDate))
 
 # eliminate those humans without a date
 db <- db %>% filter(!is.na(ReportDate) | Source.Type != "Human")
