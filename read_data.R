@@ -100,7 +100,8 @@ read_isolate <- function(isolate_path, read_extra = T) {
     extras <- read.csv(isolate_path_extras, stringsAsFactors=F, colClasses="character")
 
     # filter incompletes out
-    extras <- extras %>% filter(ST == "NEW" | substring(ST,1,3) == "ST-")
+    extras <- extras %>% filter(ST != "")
+                          #ST == "NEW" | substring(ST,1,3) == "ST-")
 
     # add lab id
     extras <- extras %>% mutate(Lab.ID = extract_lab_id_from_isolate_id(Isolate.ID))
