@@ -41,63 +41,16 @@
 # This isn't too much more work than running the Excel export in the first place, but is frustrating
 # nonetheless.  For more info, the openxlsx reader doesn't handle t="inlineStr" style tags.
 
+source("helpers.R")
 source("pubmlst_data.R")
 
 library(dplyr)
 
-db <- read.csv("../Export_Bionumerics_20150317.csv", stringsAsFactors=F)
+db_file <- find_latest_version("../final_data/")
+db <- read.csv(db_file, stringsAsFactors=F)
 
-# 1. Process MLST information.
-
-cols_mlst  <- c("ASP", "GLN", "GLT", "GLY", "PGM", "TKT", "UNC")
-
-#   a. convert "NEW" to a special value?
-
-# TODO: What does NEW mean?  New at the time of sampling?  Why not in PubMLST?
-
-# Talked with Anne. NEW is new at the time of sampling.  i.e. it could be known now
-# and possibly is now in PubMLST.  Will see if I can get the sequence information that
-# corresponds to these NEW isolates.
-
-for (i in cols_mlst) {
-  newbies <- db[,i] == "NEW"
-  if (sum(newbies) > 0)
-    db[newbies,i] <- 1000 - 1:sum(newbies)
-}
-
-#   a. convert MLST info to numeric
-
-for (i in cols_mlst)
-  db[,i] <- suppressWarnings(as.numeric(db[,i]))
-
-#   b. eliminate rows without MLST information.
-
-db = db %>% filter(!is.na(ASP) |
-                   !is.na(GLN) |
-                   !is.na(GLT) |
-                   !is.na(GLY) |
-                   !is.na(PGM) |
-                   !is.na(TKT) |
-                   !is.na(UNC))
-
-#   c. ST from PubMLST, optionally imputing missing alleles
-
-pubmlst <- get_allelic_profiles(pubmlst_sts_url="http://pubmlst.org/data/profiles/campylobacter.txt",
-                                pubmlst_isolates_path="../pubmlst_isolates_20150219.txt")
-
-results <- get_sequence_type(mlst=db[,cols_mlst], pubmlst=pubmlst, impute_alleles=T)
-
-compST <- data.frame(db = db$ST, pubmlst = results$ST, stringsAsFactors=F)
-
-compST %>% filter(db != "" & is.na(pubmlst))
-compST %>% filter(db == "" & !is.na(pubmlst))
-compST %>% filter(db != pubmlst & !is.na(pubmlst))
-
-db[,cols_mlst] <- results[,cols_mlst]
-db$ST <- results$ST
-db$CC <- results$CC
-db$Coli <- results$coli
-db$Imputed <- results$imputed
+# infer MLST from pubMLST
+db <- db %>% fill_mlst_from_pubmlst(pubmlst_isolates_path="../pubmlst_isolates")
 
 # 2. Eliminate the rows we don't want.
 #   a. rows in the wrong project
@@ -171,6 +124,7 @@ db = db %>% filter(Coli != "Coli")
 # first remove those with more than X news
 new_allele_max <- 3
 
+cols_mlst  <- c("ASP", "GLN", "GLT", "GLY", "PGM", "TKT", "UNC")
 incomplete <- which(rowSums(db[,cols_mlst] > 900) > new_allele_max)
 db = db[-incomplete,]
 
@@ -188,11 +142,12 @@ db = db %>% filter(!is.na(ASP) &
 unique_rows <- as.numeric(rownames(unique(db %>% select(Lab.ID, ST))))
 db <- db[unique_rows,]
 
-# fixup date information
-db <- db %>% mutate(ReportDate = as.Date(ReportDate))
+# fixup date information.  Use Sampled.Date as that doesn't depend on episurv information,
+# thus allowing unlinked samples to be included in the attribution
+db <- db %>% mutate(Sampled.Date = as.Date(Sampled.Date, "%d/%m/%Y"))
 
 # eliminate those humans without a date
-db <- db %>% filter(!is.na(ReportDate) | Source.Type != "Human")
+db <- db %>% filter(!is.na(Sampled.Date) | Source.Type != "Human")
 
 # add a quarter and intervention column
 quarters_since_2005 <- function(date) {
@@ -200,7 +155,8 @@ quarters_since_2005 <- function(date) {
   floor(dt$mon/3) + (dt$year - 105)*4 + 1
 }
 
-db <- db %>% mutate(Quarter = quarters_since_2005(ReportDate))
+db <- db %>% mutate(Quarter = quarters_since_2005(Sampled.Date))
+db <- db %>% mutate(Year = as.POSIXlt(Sampled.Date)[["year"]] + 1900)
 db <- db %>% mutate(Intervention = ifelse(Quarter <= 12, "before", "after"))
 
 # eliminate things outside our range
@@ -236,31 +192,10 @@ table(ur$UR_bool)
 db <- db %>% left_join(ur, by="Meshblock06")
 
 # Eliminate columns we don't want
-sub <- db %>% select(ST, ASP, GLN, GLT, GLY, PGM, TKT, UNC, Source=SA_model_source, Imputed, UR_num, UR_bool, ReportDate, Quarter, Intervention)
+sub <- db %>% select(ST, ASP, GLN, GLT, GLY, PGM, TKT, UNC, Source=SA_model_source, Imputed, UR_num, UR_bool, Sampled.Date, Quarter, Year, Intervention)
 
 # write to .csv file
 write.csv(sub, "output.csv", row.names=F)
 
 # TODO: Write R Markdown document to encapsulate this information.
-
-# source groups
-#sources <- list(c("Supplier A", "Supplier B", "Supplier_other"), "Duck_poultry", "Turkey", "Spent_hen", "Cattle", "Sheep", "Cat_dog_pet", "Water_bird_wild", "Wild_bird_other", "Environmental water")
-
-# replace the source column
-#source <- rep(0, nrow(d2013_no_dupes))
-#for (i in 1:length(sources))
-#{
-#  for (j in 1:length(sources[[i]]))
-#    source[d2013_no_dupes[,col_names_source] == sources[[i]][j]] <- i
-#}
-#d2013_no_dupes[,col_names_source] <- source
-
-# write out for model running...
-#animals <- subset(d2013_no_dupes, source>0)[,c(col_names_sequence_type, col_names_alleles, col_names_source)]
-#names(animals) <- c("ST", col_names_alleles, "Source")
-#humans  <- subset(d2013_no_dupes, source==0)[,c(col_names_sequence_type, col_names_alleles, col_names_month)]
-#names(humans) <- c("ST", col_names_alleles, "YM")
-
-#write.table(animals, "animals_2013_9.txt", quote=F, sep="\t", row.names=F)
-#write.table(humans, "humans_2005_only.txt", quote=F, sep="\t", row.names=F)
 
