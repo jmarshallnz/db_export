@@ -1,6 +1,7 @@
 # This script is to perform the join of episurv with sample and isolate information from the
 # database
 
+source("read_data.R")
 source("extractors.R")
 source("validators.R")
 source("merge_db.R")
