@@ -2,6 +2,7 @@
 
 source("extractors.R")
 source("merge_db.R")
+source("helpers.R")
 
 library(dplyr)
 
@@ -90,27 +91,44 @@ read_edr <- function(episurv_path) {
 
 # read isolate information, and merge in extras as needed
 read_isolate <- function(isolate_path, read_extra = T) {
+
   # read the base isolate table
-  isolate <- read.csv(isolate_path, stringsAsFactors=F, colClasses="character")
+  isolate_file <- find_latest_version(isolate_path, full_path=FALSE) # false to get filename without path
+
+  isolate <- read.csv(file.path(isolate_path, isolate_file), stringsAsFactors=F, colClasses="character")
 
   # read in any additional isolates
-  isolate_path_extras <- gsub("^(.*)\\.csv$", "\\1_extras.csv", isolate_path)
-  if (read_extra && file.exists(isolate_path_extras)) {
-    cat("Adding extra isolates found in '", isolate_path_extras, "'\n", sep="")
-    extras <- read.csv(isolate_path_extras, stringsAsFactors=F, colClasses="character")
+  if (read_extra) {
+    isolate_file_regex <- gsub("^(.*)\\.csv$", "\\1_extras(.*).csv", isolate_file)
+    extra_files <- sort(list.files(isolate_path, isolate_file_regex))
+    extra_isolate_ids <- NULL
+    for (extra_file in extra_files) {
+      cat("Adding extra isolates found in '", extra_file, "'\n", sep="")
+      extras <- read.csv(file.path(isolate_path, extra_file), stringsAsFactors=F, colClasses="character")
 
-    # filter incompletes out
-    extras <- extras %>% filter(ST != "")
-                          #ST == "NEW" | substring(ST,1,3) == "ST-")
+      col_extras <- c("Lab.ID", "Lab.No", "ST", "ASP", "GLN", "GLT", "GLY", "PGM", "TKT", "UNC")
 
-    # add lab id
-    extras <- extras %>% mutate(Lab.ID = extract_lab_id_from_isolate_id(Isolate.ID))
+      if (any(!(col_extras %in% names(extras)))) {
+        stop(paste0("Missing columns ", col_extras[!(col_extras %in% names(extras))], " in extras file '", extra_file, "'"))
+      }
 
-    # select only columns we want to merge
-    extras <- extras %>% select(Lab.ID, Lab.No = Isolate.ID, ST, ASP, GLN, GLT, GLY, PGM, TKT, UNC)
+      # filter incompletes out
+      extras <- extras %>% filter_missing_mlst
 
-    # merge the databases
-    isolate <- merge_db(isolate, extras, "Lab.No", add_new = TRUE)
+      if (length(intersect(extras$Lab.No, extra_isolate_ids)) > 0) {
+        cat("WARNING: Multiple Lab.No's in the extra isolate files:\n")
+        print(intersect(extras$Lab.No, extra_isolate_ids))
+      }
+
+      extra_isolate_ids <- union(extra_isolate_ids, extras$Lab.No)
+
+      # select only columns we want to merge
+      extras <- extras %>% select(one_of(col_extras))
+
+      # merge the databases
+      isolate <- merge_db(isolate, extras, "Lab.No", add_new = TRUE)
+      #readline()
+    }
   }
 
   isolate
