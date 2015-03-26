@@ -5,6 +5,7 @@
 # isolate list and count the species designations.
 
 source("extractors.R")
+source("helpers.R")
 
 library(dplyr)
 library(reshape2)
@@ -16,7 +17,9 @@ get_allelic_profiles <- function(pubmlst_sts_url, pubmlst_isolates_path) {
   mlst <- read.table(pubmlst_sts_url, header=T, sep="\t")
 
   # read in previously downloaded pubmlst isolate data
-  isolates <- read.table(pubmlst_isolates_path, header=T, sep="\t", comment.char="")
+  isolates_file <- find_latest_version(pubmlst_isolates_path)
+  isolates <- read.table(isolates_file, header=T, sep="\t", comment.char="")
+
   cols_iso <- c("aspA", "glnA", "gltA", "glyA", "pgm", "tkt", "uncA")
 
   for (i in cols_iso)
@@ -98,3 +101,41 @@ get_sequence_type <- function(mlst, pubmlst, impute_alleles = F) {
 
   result
 }
+
+fill_mlst_from_pubmlst <- function(db, pubmlst_isolates_path="../pubmlst_isolates") {
+
+  cols_mlst  <- c("ASP", "GLN", "GLT", "GLY", "PGM", "TKT", "UNC")
+
+  #   a. convert "NEW" to a special value
+
+  # TODO: What does NEW mean?  New at the time of sampling?  Why not in PubMLST?
+
+  # Talked with Anne. NEW is new at the time of sampling.  i.e. it could be known now
+  # and possibly is now in PubMLST.  Will see if I can get the sequence information that
+  # corresponds to these NEW isolates.
+
+  for (i in cols_mlst) {
+    newbies <- db[,i] == "NEW"
+    if (sum(newbies) > 0)
+      db[newbies,i] <- 1000 - 1:sum(newbies)
+  }
+
+  #   a. convert MLST info to numeric
+  for (i in cols_mlst)
+    db[,i] <- suppressWarnings(as.numeric(db[,i]))
+
+  #   c. ST from PubMLST, optionally imputing missing alleles
+  pubmlst <- get_allelic_profiles(pubmlst_sts_url="http://pubmlst.org/data/profiles/campylobacter.txt",
+                                  pubmlst_isolates_path=pubmlst_isolates_path)
+
+  results <- get_sequence_type(mlst=db[,cols_mlst], pubmlst=pubmlst, impute_alleles=T)
+
+  # store results
+  db[,cols_mlst] <- results[,cols_mlst]
+  db$ST <- results$ST
+  db$CC <- results$CC
+  db$Coli <- results$coli
+  db$Imputed <- results$imputed
+  db
+}
+
