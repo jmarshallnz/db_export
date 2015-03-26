@@ -8,6 +8,16 @@ source("merge_db.R")
 
 library(dplyr)
 
+fill_manawatu <- function(manawatu, hospital_number) {
+
+  # outside hospital numbers take the form [#]#(A-Z)...
+  outside_manawatu <- grepl("^[0-9][0-9]*[a-zA-Z]", hospital_number)
+  cat("Outside hospital numbers:\n")
+  print(hospital_number[outside_manawatu])
+
+  ifelse(outside_manawatu, "No", manawatu)
+}
+
 join_data <- function(episurv_path, sample_path, isolate_path, cols_to_extract = NULL) {
 
   # read data in
@@ -53,6 +63,11 @@ join_data <- function(episurv_path, sample_path, isolate_path, cols_to_extract =
 
   # rbind the databases back together
   sample <- rbind(sample_linked, sample_unlinked)
+
+  # Now that we have the hospital number, we can fill in some missing Manawatu
+  humans <- sample %>% filter(SA_model_source == "Human")
+  humans <- humans %>% mutate(Manawatu = fill_manawatu(Manawatu, Hospital.No))
+  sample <- rbind(sample %>% filter(SA_model_source != "Human"), humans)
 
   # OK, now join up the tables, adding extra stuff where needed
   isolate <- isolate %>% mutate(Isolate.Level.Lab.ID = Lab.ID)
