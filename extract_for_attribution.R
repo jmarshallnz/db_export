@@ -164,32 +164,8 @@ db <- db %>% filter(Quarter > 0 | is.na(Quarter))
 
 # TODO: Get prevalence information directly from the number of isolates?
 
-
-# load concordance file to map urban/rural status
-ur <- read.csv("../concordance-2006.csv", stringsAsFactors=F)
-names(ur) <- c("Meshblock06", "UR_cat")
-
-# convert UR_cat to a number, and U/R binary
-ur_tab <- read.table(header=T, sep=",", stringsAsFactors=F, strip.white=T, text = "
-            UR_cat,                               UR_num, UR_bool      
-            Area outside urban/rural profile,         NA, NA 
-            Highly rural/remote area,                 -3, Rural
-            Rural area with low urban influence,      -2, Rural
-            Rural area with moderate urban influence, -1, Rural
-            Rural area with high urban influence,      0, Urban
-            Independent Urban Area,                    1, Urban
-            Satellite Urban Area,                      2, Urban
-            Main urban area,                           3, Urban"
-)
-
-ur = ur %>% left_join(ur_tab, by="UR_cat")
-
-table(ur$UR_cat)
-table(ur$UR_num)
-table(ur$UR_bool)
-
-# join our database
-db <- db %>% left_join(ur, by="Meshblock06")
+# add in the urban/rural status
+db <- db %>% left_join(read_urban_rural("../concordance-2006.csv"), by="Meshblock06")
 
 # Eliminate columns we don't want
 sub <- db %>% select(ST, ASP, GLN, GLT, GLY, PGM, TKT, UNC, Source=SA_model_source, Imputed, UR_num, UR_bool, Sampled.Date, Quarter, Year, Intervention)
