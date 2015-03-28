@@ -43,6 +43,7 @@
 
 source("helpers.R")
 source("pubmlst_data.R")
+source("read_data.R")
 
 library(dplyr)
 
@@ -162,13 +163,31 @@ db <- db %>% mutate(Intervention = ifelse(Quarter <= 12, "before", "after"))
 # eliminate things outside our range
 db <- db %>% filter(Quarter > 0 | is.na(Quarter))
 
+# raw milk
+rawmilk_tab <- read.table(header=T, sep=",", row.names=1, stringsAsFactors=F, strip.white=T, text = "
+              ,     Value 
+            '',      NA 
+            FALSE,   No 
+            na,      NA
+            nc,      NA
+            no,      No
+            No,      No
+            TRUE,   Yes
+            uk,      NA
+            Unknown, NA
+            yes,    Yes
+            Yes,    Yes"
+)
+
+db <- db %>% mutate(Rawmilk = rawmilk_tab[UnpasturisedMilk,])
+
 # TODO: Get prevalence information directly from the number of isolates?
 
 # add in the urban/rural status
 db <- db %>% left_join(read_urban_rural("../concordance-2006.csv"), by="Meshblock06")
 
 # Eliminate columns we don't want
-sub <- db %>% select(ST, ASP, GLN, GLT, GLY, PGM, TKT, UNC, Source=SA_model_source, Imputed, UR_num, UR_bool, Sampled.Date, Quarter, Year, Intervention)
+sub <- db %>% select(ST, ASP, GLN, GLT, GLY, PGM, TKT, UNC, Source=SA_model_source, Imputed, UR_num, UR_bool, Sampled.Date, Quarter, Year, Intervention, Rawmilk)
 
 # write to .csv file
 write.csv(sub, "output.csv", row.names=F)
