@@ -1,12 +1,5 @@
 # functions for extracting data from various fields etc.
-
-# grep that returns empty if no hit is found, else returns the replace string
-mygrep <- function(match, replace, x, ...) {
-  ind <- grepl(match, x, ...)
-  y   <- gsub(match, replace, x, ...)
-  y[!ind] <- ""
-  return(y)
-}
+source("helpers.R")
 
 # extract potential hospital number from comment field of episurv
 extract_hospital_from_comment <- function(comment) {

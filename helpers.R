@@ -1,5 +1,13 @@
 # R helpers
 
+# grep that returns empty if no hit is found, else returns the replace string
+mygrep <- function(match, replace, x, ...) {
+  ind <- grepl(match, x, ...)
+  y   <- gsub(match, replace, x, ...)
+  y[!ind] <- ""
+  return(y)
+}
+
 # find the latest version of a file
 find_latest_version <- function(path, prefix = "", full_path = TRUE) {
 
