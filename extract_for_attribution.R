@@ -43,9 +43,9 @@
 
 source("helpers.R")
 source("pubmlst_data.R")
-source("read_data.R")
 
 library(dplyr)
+library(meshblocknz)
 
 db_file <- find_latest_version("../final_data/")
 db <- read.csv(db_file, stringsAsFactors=F)
@@ -184,7 +184,7 @@ db <- db %>% mutate(Rawmilk = rawmilk_tab[UnpasturisedMilk,])
 # TODO: Get prevalence information directly from the number of isolates?
 
 # add in the urban/rural status
-db <- db %>% left_join(read_urban_rural("../concordance-2006.csv"), by="Meshblock06")
+db <- db %>% left_join(mb_2006_ur, by="Meshblock06")
 
 # Eliminate columns we don't want
 sub <- db %>% select(ST, ASP, GLN, GLT, GLY, PGM, TKT, UNC, Source=SA_model_source, Imputed, UR_num, UR_bool, Sampled.Date, Quarter, Year, Intervention, Rawmilk)

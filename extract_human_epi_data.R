@@ -4,10 +4,10 @@
 
 source("helpers.R")
 source("pubmlst_data.R")
-source("read_data.R")
 
 library(dplyr)
 library(lubridate)
+library(meshblocknz)
 
 db_file <- find_latest_version("../final_data/")
 db <- read.csv(db_file, stringsAsFactors=F)
@@ -76,7 +76,7 @@ db <- db %>% mutate(Ethnicity = ifelse(grepl("Maori", EthnicityGrouping), "Maori
                                 ifelse(grepl("European", EthnicityGrouping), "European", NA)))))
 
 # add in the urban/rural status
-db <- db %>% left_join(read_urban_rural("../concordance-2006.csv"), by="Meshblock06")
+db <- db %>% left_join(mb_2006_ur, by="Meshblock06")
 
 # eliminate those where we have no link to urban/rural status (i.e. episurv)
 # or where we don't have date information

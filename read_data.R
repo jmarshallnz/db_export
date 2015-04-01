@@ -1,6 +1,5 @@
 # functions for reading data in order to merge datasets
 
-source("extractors.R")
 source("merge_db.R")
 source("helpers.R")
 
@@ -132,27 +131,4 @@ read_isolate <- function(isolate_path, read_extra = T) {
   }
 
   isolate
-}
-
-# reads the urban/rural concordance file (use Meshblock06 for joining)
-read_urban_rural <- function(ur_concordance_file) {
-
-  # load concordance file to map urban/rural status
-  ur <- read.csv(ur_concordance_file, stringsAsFactors=F)
-  names(ur) <- c("Meshblock06", "UR_cat", "City")
-
-  # convert UR_cat to a number, and U/R binary
-  ur_tab <- read.table(header=T, sep=",", stringsAsFactors=F, strip.white=T, text = "
-            UR_cat,                               UR_num, UR_bool      
-            Area outside urban/rural profile,         NA, NA 
-            Highly rural/remote area,                 -3, Rural
-            Rural area with low urban influence,      -2, Rural
-            Rural area with moderate urban influence, -1, Rural
-            Rural area with high urban influence,      0, Urban
-            Independent Urban Area,                    1, Urban
-            Satellite Urban Area,                      2, Urban
-            Main urban area,                           3, Urban"
-  )
-
-  ur %>% left_join(ur_tab, by="UR_cat")
 }
