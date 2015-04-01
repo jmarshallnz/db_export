@@ -23,7 +23,7 @@ get_allelic_profiles <- function(pubmlst_sts_url, pubmlst_isolates_path) {
   cols_iso <- c("aspA", "glnA", "gltA", "glyA", "pgm", "tkt", "uncA")
 
   for (i in cols_iso)
-    isolates[,i] <- as.numeric(as.character(isolates[,i]))
+    isolates[,i] <- as_numeric(as.character(isolates[,i]))
 
   # cleanup the species name column
   levels(isolates$species) <- gsub("Campylobacter (.*)", "\\1", levels(isolates$species))
@@ -57,7 +57,7 @@ get_sequence_type <- function(mlst, pubmlst, impute_alleles = F) {
   seqs <- factor(apply(mlst, 1, paste, collapse="_"))
   levs <- levels(seqs)
 
-  sequences <- data.frame(t(sapply(levels(seqs), function(x) { suppressWarnings(as.numeric(unlist(strsplit(x, split="_")))) })))
+  sequences <- data.frame(t(sapply(levels(seqs), function(x) { as_numeric(unlist(strsplit(x, split="_"))) })))
   names(sequences) <- cols_mlst
   sequences$ST <- ""
   sequences$CC <- ""
@@ -96,7 +96,7 @@ get_sequence_type <- function(mlst, pubmlst, impute_alleles = F) {
   }
   sequences$imputed <- imputed
 
-  result <- sequences[as.numeric(seqs),]
+  result <- sequences[as_numeric(seqs),]
   rownames(result) <- 1:nrow(result)
 
   result
@@ -122,7 +122,7 @@ fill_mlst_from_pubmlst <- function(db, pubmlst_isolates_path="../pubmlst_isolate
 
   #   a. convert MLST info to numeric
   for (i in cols_mlst)
-    db[,i] <- suppressWarnings(as.numeric(db[,i]))
+    db[,i] <- as_numeric(db[,i])
 
   #   c. ST from PubMLST, optionally imputing missing alleles
   pubmlst <- get_allelic_profiles(pubmlst_sts_url="http://pubmlst.org/data/profiles/campylobacter.txt",

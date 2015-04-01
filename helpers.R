@@ -36,3 +36,18 @@ filter_missing_mlst <- function(db) {
              UNC != "")
 }
 
+# warning-free conversion to numeric
+as_numeric <- function(x, with_warnings = FALSE) {
+  if (with_warnings) {
+    as.numeric(x)
+  } else {
+    suppressWarnings(as.numeric(x))
+  }
+}
+
+# function for modifying colours to make them transparent
+alpha <- function(col, a)
+{
+  rgb(t(col2rgb(col)/255), alpha=a)
+}
+
