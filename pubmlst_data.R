@@ -4,7 +4,6 @@
 # we simply download the PubMLST profile list, and match this against the PubMLST
 # isolate list and count the species designations.
 
-source("extractors.R")
 source("helpers.R")
 
 library(dplyr)
