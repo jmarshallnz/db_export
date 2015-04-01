@@ -139,7 +139,7 @@ read_urban_rural <- function(ur_concordance_file) {
 
   # load concordance file to map urban/rural status
   ur <- read.csv(ur_concordance_file, stringsAsFactors=F)
-  names(ur) <- c("Meshblock06", "UR_cat")
+  names(ur) <- c("Meshblock06", "UR_cat", "City")
 
   # convert UR_cat to a number, and U/R binary
   ur_tab <- read.table(header=T, sep=",", stringsAsFactors=F, strip.white=T, text = "
