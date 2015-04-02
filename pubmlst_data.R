@@ -48,7 +48,17 @@ get_allelic_profiles <- function(pubmlst_sts_url, pubmlst_isolates_path) {
   mlst %>% select(ST, ASP=aspA, GLN=glnA, GLT=gltA, GLY=glyA, PGM=pgm, TKT=tkt, UNC=uncA, CC, coli = prob_coli)
 }
 
-get_sequence_type <- function(mlst, pubmlst, impute_alleles = F) {
+find_matching_profiles <- function(st, pubmlst) {
+  possibles <- rep(T, nrow(pubmlst))
+  for (j in 1:length(st)) {
+    if (!is.na(st[,j])) {
+      possibles <- possibles & pubmlst[,cols_mlst[j]] == st[,j]
+    }
+  }
+  possibles
+}
+
+get_sequence_type <- function(mlst, pubmlst) {
 
   cols_mlst  <- c("ASP", "GLN", "GLT", "GLY", "PGM", "TKT", "UNC")
 
@@ -63,32 +73,32 @@ get_sequence_type <- function(mlst, pubmlst, impute_alleles = F) {
   sequences$coli <- ""
   imputed <- rep(0, nrow(sequences)) # don't store in sequences, as it makes assignment from pubmlst trickier
 
+  newmlst <- data.frame(col.names=col.names(pubmlst)) # data frame to hold new STs
   new_sts <- 0
   for (i in 1:nrow(sequences)) {
     st <- sequences[i,cols_mlst]
 
     # find hits in pubmlst
-    possibles <- rep(T, nrow(pubmlst))
-    na_count <- 0
-    for (j in 1:length(st)) {
-      if (!is.na(st[,j])) {
-        possibles <- possibles & pubmlst[,cols_mlst[j]] == st[,j]
-      } else {
-        na_count <- na_count + 1;
-      }
-    }
-    if (sum(possibles) == 0 && na_count == 0) {
+    possibles <- find_matching_profiles(st, pubmlst)
+
+    if (sum(possibles) == 0 && !any(is.na(st))) {
       # new ST?
+      possibles <- find_matching_profiles(st, newmlst)
+      if (sum(possibles) == 0) {
+        newmlst <- rbind(newmlst, st)
+        newtype <- 10000 + nrow(new_mlst)
+        newmlst[nrow(newmlst)+1,c("ST", cols_mlst, "CC", "coli")] <- c(newtype, st, "", "")
+        sequences[i,"ST"] <- newtype # other info is unknown
+      } else if (sum(possibles) == 1) {
+        sequences[i,] <- newmlst[possibles,names(sequences)]
+        imputed[i] <- 0
+      }
       new_sts <- new_sts+1
       pubmlst[nrow(pubmlst)+1,c("ST", cols_mlst, "CC", "coli")] <- c(10000 + new_sts, st, "", "")
-      sequences[i,"ST"] <- 10000 + new_sts
-    } else if (sum(possibles) == 0) {
-      # partial with no match in pubmlst -> leave blank
-    }
-    else if (sum(possibles) == 1) {
+    } else if (sum(possibles) == 1) {
       # found - fill in the gaps from PubMLST
       sequences[i,] <- pubmlst[possibles,names(sequences)]
-      imputed[i] <- na_count
+      imputed[i] <- sum(is.na(st))
     }
     if (i %% 100 == 0)
       cat("done", i, "of", nrow(sequences), "STs\n")
