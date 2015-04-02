@@ -8,6 +8,7 @@ source("helpers.R")
 
 library(dplyr)
 library(reshape2)
+library(pubmlst)
 
 # derive MLST allelic profiles from pubmlst information
 get_allelic_profiles <- function(pubmlst_sts_url, pubmlst_isolates_path) {
@@ -48,16 +49,6 @@ get_allelic_profiles <- function(pubmlst_sts_url, pubmlst_isolates_path) {
   mlst %>% select(ST, ASP=aspA, GLN=glnA, GLT=gltA, GLY=glyA, PGM=pgm, TKT=tkt, UNC=uncA, CC, coli = prob_coli)
 }
 
-find_matching_profiles <- function(st, pubmlst) {
-  possibles <- rep(T, nrow(pubmlst))
-  for (j in 1:length(st)) {
-    if (!is.na(st[,j])) {
-      possibles <- possibles & pubmlst[,cols_mlst[j]] == st[,j]
-    }
-  }
-  possibles
-}
-
 get_sequence_type <- function(mlst, pubmlst) {
 
   cols_mlst  <- c("ASP", "GLN", "GLT", "GLY", "PGM", "TKT", "UNC")
@@ -66,15 +57,16 @@ get_sequence_type <- function(mlst, pubmlst) {
   seqs <- factor(apply(mlst, 1, paste, collapse="_"))
   levs <- levels(seqs)
 
-  sequences <- data.frame(t(sapply(levels(seqs), function(x) { as_numeric(unlist(strsplit(x, split="_"))) })))
-  names(sequences) <- cols_mlst
-  sequences$ST <- ""
-  sequences$CC <- ""
-  sequences$coli <- ""
-  imputed <- rep(0, nrow(sequences)) # don't store in sequences, as it makes assignment from pubmlst trickier
+  sequences <- t(sapply(levels(seqs), function(x) { as_numeric(unlist(strsplit(x, split="_"))) }))
+  colnames(sequences) <- cols_mlst
 
-  newmlst <- data.frame(col.names=col.names(pubmlst)) # data frame to hold new STs
-  new_sts <- 0
+  # output
+  output  <- pubmlst[0,]
+  imputed <- rep(0, nrow(sequences)) # easier to store separately
+
+  # storage for new MLST sequences we find
+  newmlst <- pubmlst[0,]
+
   for (i in 1:nrow(sequences)) {
     st <- sequences[i,cols_mlst]
 
@@ -82,30 +74,32 @@ get_sequence_type <- function(mlst, pubmlst) {
     possibles <- find_matching_profiles(st, pubmlst)
 
     if (sum(possibles) == 0 && !any(is.na(st))) {
-      # new ST?
+      # we may have found this new profile before
       possibles <- find_matching_profiles(st, newmlst)
       if (sum(possibles) == 0) {
-        newmlst <- rbind(newmlst, st)
-        newtype <- 10000 + nrow(new_mlst)
-        newmlst[nrow(newmlst)+1,c("ST", cols_mlst, "CC", "coli")] <- c(newtype, st, "", "")
-        sequences[i,"ST"] <- newtype # other info is unknown
+        # new ST
+        newtype <- 10000 + nrow(newmlst)
+        newmlst[nrow(newmlst)+1,] <- c(newtype, st, NA, "")
+        output[i,] <- c(newtype, st, NA, "")
       } else if (sum(possibles) == 1) {
-        sequences[i,] <- newmlst[possibles,names(sequences)]
-        imputed[i] <- 0
+        output[i,] <- newmlst[possibles,]
+      } else {
+        stop("Bug - can't possibly have duplicate new_mlst matches")
       }
-      new_sts <- new_sts+1
-      pubmlst[nrow(pubmlst)+1,c("ST", cols_mlst, "CC", "coli")] <- c(10000 + new_sts, st, "", "")
     } else if (sum(possibles) == 1) {
       # found - fill in the gaps from PubMLST
-      sequences[i,] <- pubmlst[possibles,names(sequences)]
+      output[i,] <- pubmlst[possibles,]
       imputed[i] <- sum(is.na(st))
+    } else {
+      # multiple hits -> leave as unimputed
+      output[i,cols_mlst] <- st
     }
     if (i %% 100 == 0)
       cat("done", i, "of", nrow(sequences), "STs\n")
   }
-  sequences$imputed <- imputed
+  output$Imputed <- imputed
 
-  result <- sequences[as_numeric(seqs),]
+  result <- output[as_numeric(seqs),]
   rownames(result) <- 1:nrow(result)
 
   result
@@ -137,14 +131,14 @@ fill_mlst_from_pubmlst <- function(db, pubmlst_isolates_path="../pubmlst_isolate
   pubmlst <- get_allelic_profiles(pubmlst_sts_url="http://pubmlst.org/data/profiles/campylobacter.txt",
                                   pubmlst_isolates_path=pubmlst_isolates_path)
 
-  results <- get_sequence_type(mlst=db[,cols_mlst], pubmlst=pubmlst, impute_alleles=T)
+  results <- get_sequence_type(mlst=db[,cols_mlst], pubmlst=pubmlst)
 
   # store results
   db[,cols_mlst] <- results[,cols_mlst]
   db$ST <- results$ST
   db$CC <- results$CC
   db$Coli <- results$coli
-  db$Imputed <- results$imputed
+  db$Imputed <- results$Imputed
   db
 }
 
