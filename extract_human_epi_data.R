@@ -3,17 +3,17 @@
 # start by extracting the necessary data (only human isolates)
 
 source("helpers.R")
-source("pubmlst_data.R")
 
 library(dplyr)
 library(lubridate)
 library(meshblocknz)
+library(pubmlst)
 
 db_file <- find_latest_version("../final_data/")
 db <- read.csv(db_file, stringsAsFactors=F)
 
 # infer MLST from pubMLST
-db <- db %>% fill_mlst_from_pubmlst(pubmlst_isolates_path="../pubmlst_isolates")
+db <- db %>% impute_mlst_in_data
 
 # 2. Eliminate the rows we don't want.
 #   a. rows in the wrong project

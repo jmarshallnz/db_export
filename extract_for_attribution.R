@@ -42,16 +42,16 @@
 # nonetheless.  For more info, the openxlsx reader doesn't handle t="inlineStr" style tags.
 
 source("helpers.R")
-source("pubmlst_data.R")
 
 library(dplyr)
 library(meshblocknz)
+library(pubmlst)
 
 db_file <- find_latest_version("../final_data/")
 db <- read.csv(db_file, stringsAsFactors=F)
 
 # infer MLST from pubMLST
-db <- db %>% fill_mlst_from_pubmlst(pubmlst_isolates_path="../pubmlst_isolates")
+db <- db %>% impute_mlst_in_data
 
 # 2. Eliminate the rows we don't want.
 #   a. rows in the wrong project
@@ -118,7 +118,7 @@ db = db %>% filter(SA_model_source != "Pig")
 
 #   f. c.coli isolates
 
-db = db %>% filter(Coli != "Coli")
+#db = db %>% filter(Coli != TRUE | is.na(Coli))
 
 #   g. Incomplete SA profiles
 
